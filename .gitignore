@@ -10,3 +10,6 @@ uploads/
 
 # Demo secrets (passwords); keep local only
 sql/demo_credentials.txt
+
+# Local helper (not part of app)
+_commit_msg.txt

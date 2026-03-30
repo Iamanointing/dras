@@ -1,0 +1,18 @@
+# Render Blueprint — https://docs.render.com/docs/infrastructure-as-code
+# Deploy: Dashboard → New → Blueprint → connect this repo, or use "Apply render.yaml".
+
+services:
+  - type: web
+    name: dras
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true

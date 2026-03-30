@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrations | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Course registration</h1>
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+      <div class="stacked-form" style="max-width:520px;">
+        <label>Matric (partial match)</label>
+        <input type="text" id="matric" placeholder="CRE/2024/001">
+        <label>Session</label>
+        <input type="text" id="session" value="2024/2025">
+        <label>Semester</label>
+        <select id="semester"><option>First</option><option>Second</option></select>
+        <button type="button" class="btn btn-primary" id="search">Find student</button>
+      </div>
+    </div>
+    <div id="info" class="muted"></div>
+    <div id="regs" class="table-scroll" style="margin:16px 0;"></div>
+    <div id="addbox" class="glass-card" style="display:none;padding:20px;">
+      <h2 style="font-size:1rem;">Add course</h2>
+      <select id="course_pick"></select>
+      <button type="button" class="btn btn-primary" id="add_reg">Register</button>
+    </div>
+    <p id="msg" class="flash" style="display:none;"></p>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  var state = { student: null, session: '', semester: '', courses: [] };
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  document.getElementById('search').addEventListener('click', function () {
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/admin/registrations/search-student', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          matric_number: document.getElementById('matric').value.trim(),
+          academic_session: document.getElementById('session').value.trim(),
+          academic_semester: document.getElementById('semester').value,
+        },
+      });
+    }).then(function (d) {
+      state.session = d.session;
+      state.semester = d.semester;
+      state.courses = d.courses || [];
+      if (!d.student) {
+        document.getElementById('info').textContent = 'No student found.';
+        document.getElementById('regs').innerHTML = '';
+        document.getElementById('addbox').style.display = 'none';
+        return;
+      }
+      state.student = d.student;
+      document.getElementById('info').textContent =
+        d.student.reg_number + ' — ' + d.student.first_name + ' ' + d.student.last_name + ' (Level ' + d.student.current_level + ')';
+      var regs = d.registrations || [];
+      document.getElementById('regs').innerHTML =
+        '<table class="data-table"><thead><tr><th>Course</th><th>Title</th><th></th></tr></thead><tbody>' +
+        regs.map(function (r) {
+          return '<tr data-reg="' + r.reg_id + '"><td>' + escapeHtml(r.course_code) + '</td><td>' +
+            escapeHtml(r.title) + '</td><td><button type="button" class="btn btn-sm btn-danger drop">Drop</button></td></tr>';
+        }).join('') + '</tbody></table>';
+      document.querySelectorAll('.drop').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var rid = btn.closest('tr').getAttribute('data-reg');
+          drasGetCsrf().then(function (csrf) {
+            return drasApi('/api/admin/registrations/drop', {
+              method: 'POST',
+              csrf: csrf,
+              json: { student_id: state.student.user_id, reg_id: Number(rid) },
+            });
+          }).then(function () { document.getElementById('search').click(); }).catch(function (e) { alert(e.message); });
+        });
+      });
+      var pick = document.getElementById('course_pick');
+      var taken = {};
+      regs.forEach(function (r) { taken[r.course_code] = 1; });
+      pick.innerHTML = state.courses.filter(function (c) {
+        return !taken[c.course_code];
+      }).map(function (c) {
+        return '<option value="' + c.course_id + '">' + escapeHtml(c.course_code + ' — ' + c.title) + '</option>';
+      }).join('');
+      document.getElementById('addbox').style.display = pick.innerHTML ? 'block' : 'none';
+    }).catch(function (e) { alert(e.message); });
+  });
+
+  document.getElementById('add_reg').addEventListener('click', function () {
+    if (!state.student) return;
+    var cid = Number(document.getElementById('course_pick').value);
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/admin/registrations/add', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          student_id: state.student.user_id,
+          course_id: cid,
+          session: state.session,
+          semester: state.semester,
+        },
+      });
+    }).then(function () { document.getElementById('search').click(); }).catch(function (e) { alert(e.message); });
+  });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+    }
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courses | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Courses</h1>
+    <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+      <h2 style="font-size:1.05rem;margin:0 0 12px;">Add course</h2>
+      <div class="stacked-form" style="max-width:520px;">
+        <label>Course code</label>
+        <input type="text" id="course_code" required>
+        <label>Title</label>
+        <input type="text" id="title" required>
+        <label>Units</label>
+        <input type="number" id="unit" min="1" max="6" value="2">
+        <label>Coordinator</label>
+        <select id="coord"></select>
+        <button type="button" class="btn btn-primary" id="add">Create</button>
+      </div>
+    </div>
+    <div class="admin-filter-bar" style="flex-wrap:wrap;gap:8px;">
+      <input type="search" id="cq" placeholder="Filter code or title…">
+      <select id="coord_f"><option value="0">All coordinators</option></select>
+      <button type="button" class="btn btn-primary" id="apply">Refresh</button>
+    </div>
+    <div id="out" class="table-scroll" style="margin-top:16px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  function loadLecturers() {
+    return drasApi('/api/admin/lecturers-for-courses').then(function (d) {
+      var list = d.lecturers || [];
+      var opts = list.map(function (L) {
+        return '<option value="' + L.user_id + '">' + escapeHtml(L.staff_id + ' — ' + L.first_name + ' ' + L.last_name) + '</option>';
+      }).join('');
+      document.getElementById('coord').innerHTML = opts;
+      var sel = '<option value="0">All coordinators</option>' + list.map(function (L) {
+        return '<option value="' + L.user_id + '">' + escapeHtml(L.staff_id) + '</option>';
+      }).join('');
+      document.getElementById('coord_f').innerHTML = sel;
+    });
+  }
+
+  function loadCourses() {
+    var qs = new URLSearchParams();
+    var cq = document.getElementById('cq').value.trim();
+    if (cq) qs.set('cq', cq);
+    var c = document.getElementById('coord_f').value;
+    if (c && c !== '0') qs.set('coordinator', c);
+    return drasApi('/api/admin/courses?' + qs.toString()).then(function (d) {
+      var courses = d.courses || [];
+      document.getElementById('out').innerHTML =
+        '<table class="data-table"><thead><tr><th>Code</th><th>Title</th><th>Units</th><th>Coordinator</th><th>Set coordinator</th></tr></thead><tbody>' +
+        courses.map(function (c) {
+          var name = (c.first_name || '') + ' ' + (c.last_name || '');
+          var opts = document.getElementById('coord').querySelectorAll('option');
+          var optHtml = '';
+          for (var i = 0; i < opts.length; i++) {
+            var o = opts[i];
+            var sel = Number(o.value) === Number(c.coordinator_id) ? ' selected' : '';
+            optHtml += '<option value="' + o.value + '"' + sel + '>' + o.textContent + '</option>';
+          }
+          return '<tr data-id="' + c.course_id + '"><td>' + escapeHtml(c.course_code) + '</td><td>' +
+            escapeHtml(c.title) + '</td><td>' + c.unit + '</td><td>' + escapeHtml(name.trim() || '—') + '</td><td>' +
+            '<select class="pick-coord">' + optHtml +
+            '</select> <button type="button" class="btn btn-sm btn-secondary setc">Update</button></td></tr>';
+        }).join('') + '</tbody></table>';
+      document.querySelectorAll('.setc').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var tr = btn.closest('tr');
+          var id = tr.getAttribute('data-id');
+          var sel = tr.querySelector('.pick-coord');
+          drasGetCsrf().then(function (csrf) {
+            return drasApi('/api/admin/courses/' + id + '/coordinator', {
+              method: 'POST',
+              csrf: csrf,
+              json: { coordinator_id: Number(sel.value) },
+            });
+          }).then(function () { loadCourses(); }).catch(function (e) { alert(e.message); });
+        });
+      });
+    });
+  }
+
+  document.getElementById('add').addEventListener('click', function () {
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/admin/courses', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          course_code: document.getElementById('course_code').value.trim(),
+          title: document.getElementById('title').value.trim(),
+          unit: Number(document.getElementById('unit').value),
+          coordinator_id: Number(document.getElementById('coord').value),
+        },
+      });
+    }).then(function () {
+      document.getElementById('course_code').value = '';
+      document.getElementById('title').value = '';
+      loadCourses();
+    }).catch(function (e) { alert(e.message); });
+  });
+
+  document.getElementById('apply').addEventListener('click', function () { loadCourses().catch(function (e) { alert(e.message); }); });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    return loadLecturers().then(loadCourses);
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

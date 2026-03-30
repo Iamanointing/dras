@@ -1,0 +1,11 @@
+-- ---------------------------------------------------------------------------
+-- Use the canonical installer (do not run this stub as SQL):
+--   sql/install_full.sql
+--
+-- It drops/creates `result_archiving_db`, applies schema (First/Second semesters),
+-- keeps admin@cre.edu with the original password hash, and seeds 5 lecturers,
+-- 20 students, courses, registrations, and results.
+--
+-- CLI from the DRAS project folder:
+--   mysql -u root < sql/install_full.sql
+-- ---------------------------------------------------------------------------

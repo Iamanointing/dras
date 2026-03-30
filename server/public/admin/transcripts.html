@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcripts | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Transcript requests</h1>
+    <div class="admin-filter-bar" style="flex-wrap:wrap;gap:8px;">
+      <input type="search" id="q" placeholder="Search name or matric…">
+      <input type="date" id="date_from">
+      <input type="date" id="date_to">
+      <button type="button" class="btn btn-primary" id="apply">Apply</button>
+    </div>
+    <div id="out" style="margin-top:16px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  function load() {
+    var qs = new URLSearchParams();
+    var q = document.getElementById('q').value.trim();
+    if (q) qs.set('q', q);
+    var df = document.getElementById('date_from').value;
+    if (df) qs.set('date_from', df);
+    var dt = document.getElementById('date_to').value;
+    if (dt) qs.set('date_to', dt);
+    return drasApi('/api/admin/transcripts/pending?' + qs.toString()).then(function (d) {
+      var rows = d.rows || [];
+      if (!rows.length) {
+        document.getElementById('out').innerHTML = '<p class="muted">No pending transcript requests.</p>';
+        return;
+      }
+      document.getElementById('out').innerHTML =
+        '<div class="table-scroll"><table class="data-table"><thead><tr><th>Matric</th><th>Student</th><th>Date</th><th>Receipt</th><th></th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          var url = r.payment_receipt_url ? '/' + escapeHtml(r.payment_receipt_url) : '#';
+          return '<tr data-id="' + r.request_id + '"><td>' + escapeHtml(r.reg_number) + '</td><td>' +
+            escapeHtml(r.first_name + ' ' + r.last_name) + '</td><td>' + escapeHtml(r.request_date) + '</td><td>' +
+            (r.payment_receipt_url ? '<a href="' + url + '" target="_blank" rel="noopener">View</a>' : '—') +
+            '</td><td><button type="button" class="btn btn-sm btn-approve" data-a="ok">Approve</button> ' +
+            '<button type="button" class="btn btn-sm btn-reject" data-a="no">Reject</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
+      document.querySelectorAll('#out button[data-a]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var tr = btn.closest('tr');
+          var id = tr.getAttribute('data-id');
+          var action = btn.getAttribute('data-a') === 'ok' ? 'approve' : 'reject';
+          drasGetCsrf().then(function (csrf) {
+            return drasApi('/api/admin/transcripts/' + id + '/approve', {
+              method: 'POST',
+              csrf: csrf,
+              json: { action: action },
+            });
+          }).then(function () { load(); }).catch(function (e) { alert(e.message); });
+        });
+      });
+    });
+  }
+
+  document.getElementById('apply').addEventListener('click', function () { load().catch(function (e) { alert(e.message); }); });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    return load();
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

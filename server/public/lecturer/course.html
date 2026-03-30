@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Course results | Lecturer</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/lecturer/dashboard.html" class="nav-back">← Courses</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title" id="title">Course</h1>
+    <div class="stacked-form" style="max-width:520px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div>
+        <label for="session">Session</label>
+        <input type="text" id="session" value="2024/2025" style="min-width:120px;">
+      </div>
+      <div>
+        <label for="semester">Semester</label>
+        <select id="semester"><option>First</option><option>Second</option></select>
+      </div>
+      <button type="button" class="btn btn-primary" id="load">Load</button>
+    </div>
+    <div class="glass-card" style="margin:16px 0;padding:16px;">
+      <label>Max CA / exam (must sum to 100)</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="number" id="max_ca" min="1" max="99" style="width:80px;">
+        <input type="number" id="max_exam" min="1" max="99" style="width:80px;">
+        <button type="button" class="btn btn-secondary" id="saveLimits">Save limits</button>
+      </div>
+    </div>
+    <p id="msg" class="flash" style="display:none;"></p>
+    <div id="tableWrap" class="table-scroll"></div>
+    <button type="button" class="btn btn-primary" id="saveScores" style="margin-top:16px;">Save scores for approval</button>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var courseId = params.get('id');
+  if (!courseId) {
+    document.body.innerHTML = '<p class="muted">Missing course id.</p>';
+    throw new Error('no id');
+  }
+  var state = { course: null, students: [], session: '2024/2025', semester: 'First' };
+
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  function show(msg, ok) {
+    var el = document.getElementById('msg');
+    el.textContent = msg;
+    el.className = ok ? 'flash flash-success' : 'flash flash-error';
+    el.style.display = 'block';
+  }
+
+  function load() {
+    var sess = document.getElementById('session').value.trim();
+    var sem = document.getElementById('semester').value;
+    state.session = sess;
+    state.semester = sem;
+    return drasApi('/api/lecturer/courses/' + encodeURIComponent(courseId) + '?session=' + encodeURIComponent(sess) + '&semester=' + encodeURIComponent(sem))
+      .then(function (d) {
+        state.course = d.course;
+        state.students = d.students || [];
+        document.getElementById('title').textContent = d.course.course_code + ' — ' + d.course.title;
+        document.getElementById('max_ca').value = d.course.max_ca;
+        document.getElementById('max_exam').value = d.course.max_exam;
+        render();
+      });
+  }
+
+  function render() {
+    var rows = state.students;
+    if (!rows.length) {
+      document.getElementById('tableWrap').innerHTML = '<p class="muted">No students registered for this period.</p>';
+      return;
+    }
+    var html = '<table class="data-table"><thead><tr><th>Matric</th><th>Name</th><th>CA</th><th>Exam</th><th>Status</th></tr></thead><tbody>';
+    rows.forEach(function (s) {
+      var ca = s.ca_score != null ? s.ca_score : '';
+      var ex = s.exam_score != null ? s.exam_score : '';
+      html += '<tr data-reg="' + s.reg_id + '"><td>' + escapeHtml(s.reg_number) + '</td><td>' +
+        escapeHtml(s.first_name + ' ' + s.last_name) + '</td>' +
+        '<td><input type="number" class="ca" data-reg="' + s.reg_id + '" value="' + ca + '" min="0" style="width:70px;"></td>' +
+        '<td><input type="number" class="ex" data-reg="' + s.reg_id + '" value="' + ex + '" min="0" style="width:70px;"></td>' +
+        '<td>' + escapeHtml(s.status || '—') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('tableWrap').innerHTML = html;
+  }
+
+  document.getElementById('load').addEventListener('click', function () {
+    load().catch(function (e) { show(e.message, false); });
+  });
+
+  document.getElementById('saveLimits').addEventListener('click', function () {
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/lecturer/courses/' + encodeURIComponent(courseId) + '/limits', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          max_ca: Number(document.getElementById('max_ca').value),
+          max_exam: Number(document.getElementById('max_exam').value),
+        },
+      });
+    }).then(function () {
+      show('Limits saved.', true);
+      return load();
+    }).catch(function (e) { show(e.message, false); });
+  });
+
+  document.getElementById('saveScores').addEventListener('click', function () {
+    var scores = {};
+    state.students.forEach(function (s) {
+      var caEl = document.querySelector('.ca[data-reg="' + s.reg_id + '"]');
+      var exEl = document.querySelector('.ex[data-reg="' + s.reg_id + '"]');
+      if (!caEl || !exEl) return;
+      if (caEl.value === '' && exEl.value === '') return;
+      scores[s.reg_id] = { ca: Number(caEl.value), exam: Number(exEl.value) };
+    });
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/lecturer/courses/' + encodeURIComponent(courseId) + '/results', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          academic_session: state.session,
+          semester: state.semester,
+          scores: scores,
+        },
+      });
+    }).then(function () {
+      show('Scores saved for admin approval.', true);
+      return load();
+    }).catch(function (e) { show(e.message, false); });
+  });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'lecturer') {
+      window.location.href = '/login.html';
+      return;
+    }
+    document.getElementById('session').value = '2024/2025';
+    return load();
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

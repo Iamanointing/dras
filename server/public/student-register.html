@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student registration | CRE</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-with-nav">
+    <div class="page-toolbar" style="margin-bottom:12px;">
+      <a href="/index.html" class="nav-back" title="Homepage">← Home</a>
+    </div>
+    <div class="auth-card" style="max-width:480px;">
+      <h2>Student registration</h2>
+      <p class="muted">Register using your matriculation number on file.</p>
+      <p id="msg" class="flash flash-error" style="display:none;"></p>
+      <form id="f" class="stacked-form">
+        <label for="matric_number">Matriculation number</label>
+        <input type="text" id="matric_number" name="matric_number" required placeholder="e.g. CRE/2024/001">
+
+        <label for="first_name">First name</label>
+        <input type="text" id="first_name" name="first_name" required>
+
+        <label for="last_name">Last name</label>
+        <input type="text" id="last_name" name="last_name" required>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
+
+        <label for="confirm_password">Confirm password</label>
+        <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+
+        <button type="submit" class="btn btn-primary">Register</button>
+      </form>
+      <p class="muted" style="margin-top:12px;"><a href="/register.html">Staff / combined form</a> · <a href="/login.html">Login</a></p>
+    </div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('f').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var msg = document.getElementById('msg');
+    msg.style.display = 'none';
+    try {
+      var csrf = await drasGetCsrf();
+      await drasApi('/api/auth/register-student', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          matric_number: document.getElementById('matric_number').value.trim(),
+          first_name: document.getElementById('first_name').value.trim(),
+          last_name: document.getElementById('last_name').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+          confirm_password: document.getElementById('confirm_password').value,
+        },
+      });
+      msg.textContent = 'Registration successful. You can log in.';
+      msg.className = 'flash flash-success';
+      msg.style.display = 'block';
+    } catch (err) {
+      msg.textContent = err.message || 'Registration failed';
+      msg.className = 'flash flash-error';
+      msg.style.display = 'block';
+    }
+  });
+})();
+</script>
+</body>
+</html>

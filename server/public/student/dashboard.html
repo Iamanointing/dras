@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student dashboard | CRE</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/index.html" class="nav-back">← Home</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Student portal</h1>
+    <p id="welcome" class="muted"></p>
+    <div class="feature-grid" style="margin-top:24px;">
+      <a class="feature-card glass-card" href="/student/results.html" style="text-decoration:none;color:inherit;">
+        <h3>Approved results</h3>
+        <p>View GPA and grades by session and semester.</p>
+      </a>
+      <a class="feature-card glass-card" href="/student/transcript.html" style="text-decoration:none;color:inherit;">
+        <h3>Transcript request</h3>
+        <p>Upload payment receipt and track status.</p>
+      </a>
+    </div>
+    <div id="profile" class="glass-card" style="margin-top:24px;padding:20px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'student') {
+      window.location.href = '/login.html';
+      return;
+    }
+    document.getElementById('welcome').textContent =
+      'Signed in as ' + d.user.first_name + ' ' + d.user.last_name + ' (' + d.user.email + ')';
+    return drasApi('/api/student/profile');
+  }).then(function (p) {
+    if (!p) return;
+    var pr = p.profile;
+    var el = document.getElementById('profile');
+    if (!pr) {
+      el.innerHTML = '<p class="muted">No profile data.</p>';
+      return;
+    }
+    el.innerHTML =
+      '<h2 style="font-size:1.1rem;margin:0 0 12px;">Profile</h2>' +
+      '<p><strong>Matric:</strong> ' + escapeHtml(pr.reg_number) + '</p>' +
+      '<p><strong>Level:</strong> ' + escapeHtml(pr.current_level) + '</p>' +
+      '<p><strong>Department:</strong> ' + escapeHtml(pr.department) + '</p>';
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

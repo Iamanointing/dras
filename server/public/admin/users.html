@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Users | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Users</h1>
+    <p>
+      <button type="button" class="btn btn-secondary tab" data-t="stu">Students</button>
+      <button type="button" class="btn btn-primary tab" data-t="lec">Lecturers</button>
+    </p>
+    <div id="bar-stu" class="admin-filter-bar" style="display:none;flex-wrap:wrap;gap:8px;">
+      <input type="search" id="q_stu" placeholder="Search…">
+      <select id="level"><option value="">All levels</option><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option></select>
+      <input type="text" id="dept" placeholder="Department contains…">
+      <button type="button" class="btn btn-primary" id="go_stu">Search</button>
+    </div>
+    <div id="bar-lec" class="admin-filter-bar" style="flex-wrap:wrap;gap:8px;">
+      <input type="search" id="q_lec" placeholder="Search…">
+      <button type="button" class="btn btn-primary" id="go_lec">Search</button>
+    </div>
+    <div id="out" class="table-scroll" style="margin-top:16px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  var mode = 'lec';
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      mode = b.getAttribute('data-t');
+      document.querySelectorAll('.tab').forEach(function (x) {
+        x.className = 'btn btn-secondary tab';
+      });
+      b.className = 'btn btn-primary tab';
+      document.getElementById('bar-stu').style.display = mode === 'stu' ? 'flex' : 'none';
+      document.getElementById('bar-lec').style.display = mode === 'lec' ? 'flex' : 'none';
+      load();
+    });
+  });
+  document.getElementById('go_stu').addEventListener('click', function () { load(); });
+  document.getElementById('go_lec').addEventListener('click', function () { load(); });
+
+  function load() {
+    if (mode === 'stu') {
+      var qs = new URLSearchParams();
+      var q = document.getElementById('q_stu').value.trim();
+      if (q) qs.set('q', q);
+      var lv = document.getElementById('level').value;
+      if (lv) qs.set('level', lv);
+      var dp = document.getElementById('dept').value.trim();
+      if (dp) qs.set('department', dp);
+      return drasApi('/api/admin/users/students?' + qs.toString()).then(renderStu);
+    }
+    var qs2 = new URLSearchParams();
+    var q2 = document.getElementById('q_lec').value.trim();
+    if (q2) qs2.set('q', q2);
+    return drasApi('/api/admin/users/lecturers?' + qs2.toString()).then(renderLec);
+  }
+
+  function renderStu(d) {
+    var users = d.users || [];
+    document.getElementById('out').innerHTML =
+      '<table class="data-table"><thead><tr><th>Matric</th><th>Name</th><th>Email</th><th>Level</th><th></th></tr></thead><tbody>' +
+      users.map(function (u) {
+        return '<tr data-id="' + u.user_id + '"><td>' + escapeHtml(u.reg_number) + '</td><td>' +
+          escapeHtml(u.first_name + ' ' + u.last_name) + '</td><td>' + escapeHtml(u.email) + '</td><td>' +
+          escapeHtml(u.current_level) + '</td><td><button type="button" class="btn btn-sm btn-danger del">Delete</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    wireDelete();
+  }
+
+  function renderLec(d) {
+    var users = d.users || [];
+    document.getElementById('out').innerHTML =
+      '<table class="data-table"><thead><tr><th>Staff ID</th><th>Name</th><th>Email</th><th></th></tr></thead><tbody>' +
+      users.map(function (u) {
+        return '<tr data-id="' + u.user_id + '"><td>' + escapeHtml(u.staff_id) + '</td><td>' +
+          escapeHtml(u.first_name + ' ' + u.last_name) + '</td><td>' + escapeHtml(u.email) + '</td><td>' +
+          '<button type="button" class="btn btn-sm btn-danger del">Delete</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    wireDelete();
+  }
+
+  function wireDelete() {
+    document.querySelectorAll('.del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Delete this user? This cannot be undone.')) return;
+        var id = btn.closest('tr').getAttribute('data-id');
+        drasGetCsrf().then(function (csrf) {
+          return drasApi('/api/admin/users/' + id + '/delete', { method: 'POST', csrf: csrf, json: {} });
+        }).then(function () { load(); }).catch(function (e) { alert(e.message); });
+      });
+    });
+  }
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    document.getElementById('bar-stu').style.display = 'none';
+    return drasApi('/api/admin/users/lecturers').then(renderLec);
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

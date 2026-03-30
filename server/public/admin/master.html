@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master records | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Master records</h1>
+    <div class="feature-grid">
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:1.05rem;">New student (matric)</h2>
+        <div class="stacked-form">
+          <input type="text" id="s_reg" placeholder="Reg number" required>
+          <input type="text" id="s_name" placeholder="Full name" required>
+          <select id="s_level"><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option></select>
+          <input type="number" id="s_year" placeholder="Entry year" value="2024">
+          <button type="button" class="btn btn-primary" id="add_s">Add</button>
+        </div>
+      </div>
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:1.05rem;">New lecturer (staff)</h2>
+        <div class="stacked-form">
+          <input type="text" id="l_id" placeholder="Staff ID" required>
+          <input type="text" id="l_name" placeholder="Full name" required>
+          <button type="button" class="btn btn-primary" id="add_l">Add</button>
+        </div>
+      </div>
+    </div>
+    <h2 style="margin-top:24px;font-size:1.05rem;">Recent student master</h2>
+    <input type="search" id="mq_s" placeholder="Filter…" style="margin-bottom:8px;">
+    <div id="list_s" class="table-scroll"></div>
+    <h2 style="margin-top:24px;font-size:1.05rem;">Recent lecturer master</h2>
+    <input type="search" id="mq_l" placeholder="Filter…" style="margin-bottom:8px;">
+    <div id="list_l" class="table-scroll"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  function loadS() {
+    var mq = document.getElementById('mq_s').value.trim();
+    var qs = mq ? '?mq=' + encodeURIComponent(mq) : '';
+    return drasApi('/api/admin/master/students' + qs).then(function (d) {
+      var rows = d.rows || [];
+      document.getElementById('list_s').innerHTML =
+        '<table class="data-table"><thead><tr><th>Matric</th><th>Name</th><th>Level</th><th>Year</th><th>Registered</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + escapeHtml(r.reg_number) + '</td><td>' + escapeHtml(r.full_name) + '</td><td>' +
+            escapeHtml(r.current_level) + '</td><td>' + r.entry_year + '</td><td>' + (r.is_registered ? 'Yes' : 'No') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    });
+  }
+  function loadL() {
+    var mq = document.getElementById('mq_l').value.trim();
+    var qs = mq ? '?mq=' + encodeURIComponent(mq) : '';
+    return drasApi('/api/admin/master/lecturers' + qs).then(function (d) {
+      var rows = d.rows || [];
+      document.getElementById('list_l').innerHTML =
+        '<table class="data-table"><thead><tr><th>Staff ID</th><th>Name</th><th>Registered</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + escapeHtml(r.staff_id) + '</td><td>' + escapeHtml(r.full_name) + '</td><td>' +
+            (r.is_registered ? 'Yes' : 'No') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    });
+  }
+
+  document.getElementById('add_s').addEventListener('click', function () {
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/admin/master/student', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          reg_number: document.getElementById('s_reg').value.trim(),
+          full_name: document.getElementById('s_name').value.trim(),
+          current_level: document.getElementById('s_level').value,
+          entry_year: Number(document.getElementById('s_year').value),
+        },
+      });
+    }).then(function () { loadS(); }).catch(function (e) { alert(e.message); });
+  });
+  document.getElementById('add_l').addEventListener('click', function () {
+    drasGetCsrf().then(function (csrf) {
+      return drasApi('/api/admin/master/lecturer', {
+        method: 'POST',
+        csrf: csrf,
+        json: {
+          staff_id: document.getElementById('l_id').value.trim(),
+          full_name: document.getElementById('l_name').value.trim(),
+        },
+      });
+    }).then(function () { loadL(); }).catch(function (e) { alert(e.message); });
+  });
+  document.getElementById('mq_s').addEventListener('change', function () { loadS(); });
+  document.getElementById('mq_l').addEventListener('change', function () { loadL(); });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    return loadS().then(loadL);
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

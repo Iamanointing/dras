@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pending results | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/admin/dashboard.html" class="nav-back">← Admin</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Pending results</h1>
+    <div class="admin-filter-bar" style="flex-wrap:wrap;gap:8px;">
+      <input type="search" id="q" placeholder="Search course, student, lecturer…" style="min-width:200px;">
+      <input type="text" id="filter_course" placeholder="Course code">
+      <input type="text" id="filter_lecturer" placeholder="Lecturer">
+      <select id="filter_session"><option value="">All sessions</option></select>
+      <button type="button" class="btn btn-primary" id="apply">Apply</button>
+    </div>
+    <div id="out" class="table-scroll" style="margin-top:16px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+
+  function rowHtml(r) {
+    return '<tr data-id="' + r.result_id + '"><td>' + escapeHtml(r.course_code) + '</td><td>' +
+      escapeHtml(r.session) + '</td><td>' + escapeHtml(r.reg_number) + '</td><td>' +
+      escapeHtml(r.student_fname + ' ' + r.student_lname) + '</td><td>' + r.ca_score + '</td><td>' +
+      r.exam_score + '</td><td>' + r.score + '</td><td>' + escapeHtml(r.grade) + '</td><td>' +
+      escapeHtml(r.lecturer_fname + ' ' + r.lecturer_lname) + '</td><td>' +
+      '<button type="button" class="btn btn-sm btn-approve" data-a="ok">Approve</button> ' +
+      '<button type="button" class="btn btn-sm btn-reject" data-a="no">Reject</button></td></tr>';
+  }
+
+  function load() {
+    var qs = new URLSearchParams();
+    var q = document.getElementById('q').value.trim();
+    if (q) qs.set('q', q);
+    var fc = document.getElementById('filter_course').value.trim();
+    if (fc) qs.set('filter_course', fc);
+    var fl = document.getElementById('filter_lecturer').value.trim();
+    if (fl) qs.set('filter_lecturer', fl);
+    var fs = document.getElementById('filter_session').value;
+    if (fs) qs.set('filter_session', fs);
+    return drasApi('/api/admin/results/pending?' + qs.toString()).then(function (d) {
+      var sessions = d.sessions || [];
+      var sel = document.getElementById('filter_session');
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">All sessions</option>' +
+        sessions.map(function (s) { return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>'; }).join('');
+      sel.value = sessions.indexOf(cur) >= 0 ? cur : '';
+      var rows = d.rows || [];
+      if (!rows.length) {
+        document.getElementById('out').innerHTML = '<p class="muted">No pending results.</p>';
+        return;
+      }
+      document.getElementById('out').innerHTML =
+        '<table class="data-table"><thead><tr><th>Course</th><th>Session</th><th>Matric</th><th>Student</th><th>CA</th><th>Exam</th><th>Total</th><th>Grade</th><th>Lecturer</th><th></th></tr></thead><tbody>' +
+        rows.map(rowHtml).join('') + '</tbody></table>';
+      document.querySelectorAll('#out button[data-a]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var tr = btn.closest('tr');
+          var id = tr.getAttribute('data-id');
+          var action = btn.getAttribute('data-a') === 'ok' ? 'approve' : 'reject';
+          drasGetCsrf().then(function (csrf) {
+            return drasApi('/api/admin/results/' + id + '/approve', {
+              method: 'POST',
+              csrf: csrf,
+              json: { action: action },
+            });
+          }).then(function () { load(); }).catch(function (e) { alert(e.message); });
+        });
+      });
+    });
+  }
+
+  document.getElementById('apply').addEventListener('click', function () { load().catch(function (e) { alert(e.message); }); });
+
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    return load();
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

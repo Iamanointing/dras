@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lecturer | CRE</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/index.html" class="nav-back">← Home</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Coordinator courses</h1>
+    <p id="welcome" class="muted"></p>
+    <div id="list" class="feature-grid" style="margin-top:20px;"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'lecturer') {
+      window.location.href = '/login.html';
+      return;
+    }
+    document.getElementById('welcome').textContent =
+      d.user.first_name + ' ' + d.user.last_name;
+    return drasApi('/api/lecturer/courses');
+  }).then(function (d) {
+    if (!d) return;
+    var el = document.getElementById('list');
+    var courses = d.courses || [];
+    if (!courses.length) {
+      el.innerHTML = '<p class="muted">No courses assigned as coordinator.</p>';
+      return;
+    }
+    el.innerHTML = courses.map(function (c) {
+      return (
+        '<a class="feature-card glass-card" href="/lecturer/course.html?id=' + c.course_id +
+        '" style="text-decoration:none;color:inherit;"><h3>' + escapeHtml(c.course_code) +
+        '</h3><p>' + escapeHtml(c.title) + '</p><p class="muted">Max CA: ' + c.max_ca +
+        ' · Max exam: ' + c.max_exam + '</p></a>'
+      );
+    }).join('');
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

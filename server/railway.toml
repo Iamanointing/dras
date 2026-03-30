@@ -1,0 +1,10 @@
+# Railway: set the service root directory to this folder (`server`) if deploying from the repo root.
+# https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/"
+healthcheckTimeout = 30

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | CRE</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/index.html" class="nav-back">← Home</a>
+    <button type="button" class="btn btn-secondary" id="logout" style="float:right;">Logout</button>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Administration</h1>
+    <p id="welcome" class="muted"></p>
+    <p id="pendingLine" class="muted"></p>
+    <div class="feature-grid" style="margin-top:24px;">
+      <a class="feature-card glass-card" href="/admin/pending-results.html" style="text-decoration:none;color:inherit;">
+        <h3>Pending results</h3>
+        <p>Approve or reject lecturer submissions.</p>
+      </a>
+      <a class="feature-card glass-card" href="/admin/transcripts.html" style="text-decoration:none;color:inherit;">
+        <h3>Transcript requests</h3>
+        <p>Verify payment receipts.</p>
+      </a>
+      <a class="feature-card glass-card" href="/admin/users.html" style="text-decoration:none;color:inherit;">
+        <h3>Users</h3>
+        <p>Search students and lecturers; delete accounts.</p>
+      </a>
+      <a class="feature-card glass-card" href="/admin/courses.html" style="text-decoration:none;color:inherit;">
+        <h3>Courses</h3>
+        <p>Create courses and assign coordinators.</p>
+      </a>
+      <a class="feature-card glass-card" href="/admin/master.html" style="text-decoration:none;color:inherit;">
+        <h3>Master records</h3>
+        <p>Add matric and staff master entries.</p>
+      </a>
+      <a class="feature-card glass-card" href="/admin/registrations.html" style="text-decoration:none;color:inherit;">
+        <h3>Registration</h3>
+        <p>Add or drop student course registrations.</p>
+      </a>
+    </div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  document.getElementById('logout').addEventListener('click', function () {
+    drasLogout().then(function () { window.location.href = '/login.html'; });
+  });
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'admin') {
+      window.location.href = '/login.html';
+      return;
+    }
+    document.getElementById('welcome').textContent =
+      'Signed in as ' + d.user.email;
+    return drasApi('/api/admin/dashboard');
+  }).then(function (dash) {
+    if (!dash) return;
+    document.getElementById('pendingLine').textContent =
+      'Pending results awaiting approval: ' + (dash.pending_results || 0);
+  }).catch(function () { window.location.href = '/login.html'; });
+})();
+</script>
+</body>
+</html>

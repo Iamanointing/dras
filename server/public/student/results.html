@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approved Results | Student</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="page-app">
+<div class="shell">
+  <div class="page-toolbar">
+    <a href="/student/dashboard.html" class="nav-back" title="Dashboard">← Dashboard</a>
+  </div>
+  <div class="panel">
+    <h1 class="page-title">Approved results</h1>
+    <p class="muted">Only results that have been approved by an administrator appear here.</p>
+    <div id="out"></div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function () {
+  drasMe().then(function (d) {
+    if (!d.user || d.user.role !== 'student') {
+      window.location.href = '/login.html';
+      return null;
+    }
+    return drasApi('/api/student/results');
+  }).then(function (d) {
+    if (!d) return;
+    var el = document.getElementById('out');
+    var sessions = d.sessions || {};
+    var keys = Object.keys(sessions);
+    if (keys.length === 0) {
+      el.innerHTML = '<p class="muted">No approved results yet.</p>';
+      return;
+    }
+    var html = '';
+    keys.sort().forEach(function (session) {
+      var block = sessions[session];
+      html += '<div class="panel" style="margin-top:20px;padding:20px;">';
+      html += '<h2 style="font-family:Georgia,serif;color:var(--gold);font-size:1.1rem;margin:0 0 12px;">Session ' + escapeHtml(session) + '</h2>';
+      html += '<p class="muted" style="margin-bottom:16px;">Session GPA: <strong>' + escapeHtml(block.gpa) + '</strong></p>';
+      ['First', 'Second'].forEach(function (sem) {
+        var rows = (block.semesters && block.semesters[sem]) || [];
+        if (!rows.length) return;
+        html += '<h3 style="font-size:1rem;color:var(--teal);margin:16px 0 8px;">' + escapeHtml(sem) + ' semester</h3>';
+        html += '<div class="table-scroll"><table class="data-table"><thead><tr><th>Course</th><th>Unit</th><th>CA</th><th>Exam</th><th>Total</th><th>Grade</th></tr></thead><tbody>';
+        rows.forEach(function (r) {
+          html += '<tr><td>' + escapeHtml(r.course_code) + ' — ' + escapeHtml(r.course_title) + '</td><td>' + r.unit + '</td><td>' + r.ca_score + '</td><td>' + r.exam_score + '</td><td>' + r.score + '</td><td>' + escapeHtml(r.grade) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+      });
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  }).catch(function () { window.location.href = '/login.html'; });
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+})();
+</script>
+</body>
+</html>

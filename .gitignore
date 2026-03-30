@@ -1,0 +1,12 @@
+# Production secrets (InfinityFree / live host)
+includes/config.local.php
+
+# Local databases and uploads (do not commit)
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+data/*.sqlite-shm
+uploads/
+
+# Demo secrets (passwords); keep local only
+sql/demo_credentials.txt

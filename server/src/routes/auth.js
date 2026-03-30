@@ -20,6 +20,7 @@ function createAuthRouter({ db, DEFAULT_SESSION, DEFAULT_SEMESTER }) {
   const r = express.Router();
 
   r.get('/session', (req, res) => {
+    res.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     const csrfToken = ensureCsrf(req);
     if (!req.session.userId) {
       return res.json({ user: null, csrfToken });

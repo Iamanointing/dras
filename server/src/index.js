@@ -21,6 +21,7 @@ if (isProd) {
 
 const { db, DEFAULT_SESSION, DEFAULT_SEMESTER } = initDb();
 const app = express();
+app.set('etag', false);
 const PORT = Number(process.env.PORT) || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-change-me-in-production';
 
@@ -39,6 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
     secret: SESSION_SECRET,
+    proxy: true,
     resave: false,
     saveUninitialized: false,
     cookie: {

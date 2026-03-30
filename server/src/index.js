@@ -14,7 +14,7 @@ const isProd = process.env.NODE_ENV === 'production';
 if (isProd) {
   const sec = process.env.SESSION_SECRET;
   if (!sec || sec === 'dev-change-me-in-production') {
-    console.error('FATAL: Set SESSION_SECRET in production (Railway Variables).');
+    console.error('FATAL: Set SESSION_SECRET in production (e.g. Render env vars).');
     process.exit(1);
   }
 }
@@ -29,6 +29,9 @@ const uploadsRoot = process.env.DRAS_UPLOADS_DIR
   : path.join(__dirname, '..', 'uploads');
 
 app.set('trust proxy', 1);
+app.get('/healthz', (_req, res) => {
+  res.status(200).type('text/plain').send('ok');
+});
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
